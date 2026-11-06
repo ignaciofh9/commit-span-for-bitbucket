@@ -74,8 +74,6 @@ The reviewer has no Bitbucket Data Center server to test on, and the extension d
 This extension needs a Bitbucket Data Center server, which is self-hosted, and has no account of its own. It only loads on pages whose address looks like /projects/KEY/repos/REPO/pull-requests/ID.
 
 On a pull request with several commits: open the Diff tab, open the menu above the file list, tick two commits, and click Review in Diff tab. The Diff tab then shows only those commits' changes.
-
-Atlassian offers Data Center trial licences for setting up a test server: https://www.atlassian.com/software/bitbucket/download
 ```
 
 ## Images
@@ -87,11 +85,14 @@ Atlassian offers Data Center trial licences for setting up a test server: https:
 
 The small promo tile and marquee are optional, so there aren't any.
 
-The screenshots show a made-up pull request on a page laid out like Bitbucket's, with the controls redrawn by hand. Run `node store-assets/render-screenshots.mjs` to redraw them, and update that script if the controls change. Real screenshots would need a repo with nothing private in it.
+The screenshots are real captures of the extension running on Bitbucket Data Center 9.4, on a local test server with a made-up repo and pull request. Upload them in this order:
+
+1. `screenshot-1.png`: ticking commits in Bitbucket's Diff menu.
+2. `screenshot-2.png`: the Diff tab narrowed to those commits, with a comment on a line.
+3. `screenshot-3.png`: ticking commits on the Commits tab.
 
 ## Before you submit
 
-1. Try a comment on a throwaway pull request, with a span active, and check it's on the right line after **Show all changes**.
-2. Check the privacy policy is live at the URL above (GitHub Pages, serving `docs/` from `main`).
-3. Run `./build.sh` and upload the zip from `dist/`.
-4. Choose visibility: Public, or Unlisted (only people with the link).
+1. Check the privacy policy is live at the URL above (GitHub Pages, serving `docs/` from `main`).
+2. Run `./build.sh` and upload the zip from `dist/`.
+3. Choose visibility: Public, or Unlisted (only people with the link).

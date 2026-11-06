@@ -17,8 +17,7 @@
   const MENU_SEARCH_MS = 10000;
   const MENU_PAGE = /\/pull-requests\/\d+\/(diff(?:\/|$)|commits\/[0-9a-f]+)/;
   const MENU_WATCH_MS = 5000;
-  const MENU_BOX_RIGHT = 4;
-  const MENU_BOX_TOP = 8;
+  const MENU_BOX_RIGHT = 12;
   const CHECKBOX_SIZE = 14;
   const CHECKBOX_SPACE = CHECKBOX_SIZE + 10;
 
@@ -57,6 +56,13 @@
     .actions button { flex: none; }
     .action-text { flex: 0 1 auto; min-width: 0; margin-right: auto; padding-right: 8px; }
     @media (max-width: 640px) { .actions { flex-wrap: wrap; } }
+    /* Where comments are written, the bar sits over the file list, so it can't cover
+       Bitbucket's comment box or its buttons. */
+    .bar.side { transform: none; width: 296px; max-width: 296px; }
+    .bar.side .actions { flex-wrap: wrap; }
+    .bar.side .action-text { flex: 1 1 calc(100% - 72px); padding-right: 0; margin-right: 0; }
+    .bar.side .actions button { order: 2; padding: 0 10px; }
+    .bar.side .actions button.subtle { order: 1; }
     .bar { position: fixed; left: 50%; bottom: 16px; z-index: 2147483000; transform: translateX(-50%); display: flex;
       width: max-content; max-width: min(800px, calc(100vw - 32px)); padding: 8px 12px; border-radius: 3px;
       color: var(--ds-text, #172b4d); background: var(--ds-surface-overlay, #fff);
@@ -305,19 +311,20 @@
 
   // A checkbox takes clicks without Bitbucket seeing them, so the row doesn't open that
   // commit and the menu stays open. Clicking the rest of the row still does what it did.
-  // It's overlaid at the end of the subject line, so the row doesn't get any wider.
+  // It's overlaid at the row's right edge, with room kept for it by page.css, so the
+  // row doesn't get any wider.
   function addMenuBox(row, commit) {
-    const box = el('input', { type: 'checkbox', className: 'bpd-check' });
+    const box = el('input', { type: 'checkbox', className: 'bpd-check bpd-menu-check' });
     box.setAttribute('aria-label', `Include commit ${commit.hash.slice(0, 7)} in the review`);
     if (!/relative|absolute|fixed|sticky/.test(getComputedStyle(row).position)) row.style.position = 'relative';
     Object.assign(box.style, {
       position: 'absolute',
       right: `${MENU_BOX_RIGHT}px`,
-      top: `${MENU_BOX_TOP}px`,
+      top: '50%',
       zIndex: '3',
       width: `${CHECKBOX_SIZE}px`,
       height: `${CHECKBOX_SIZE}px`,
-      margin: '0',
+      margin: `-${CHECKBOX_SIZE / 2}px 0 0`,
       cursor: 'pointer',
     });
     for (const type of ['pointerdown', 'pointerup', 'mouseup', 'dblclick']) {
@@ -522,6 +529,10 @@
     hint.hidden = !actions.hidden;
     bar.hidden = !picker.hidden || actions.hidden;
     bar.classList.toggle('warning', Boolean(warning || actionMessage));
+    const side = MENU_PAGE.test(location.pathname);
+    bar.classList.toggle('side', side);
+    const left = side ? `${tab?.parentElement?.getBoundingClientRect().left ?? 16}px` : '';
+    if (bar.style.left !== left) bar.style.left = left;
   }
 
   // Saves what to keep, then reloads into the Diff tab, where the page hook applies it.
@@ -588,11 +599,15 @@
       menuTitle = findText(document.body, (text) => text === ALL_CHANGES);
       menuSubtitle = null;
       if (!menuTitle) return;
+    }
+    // Bitbucket fills in its "6 commits" line after the title, and can redraw it.
+    if (!menuSubtitle?.isConnected) {
+      menuSubtitle = null;
       let box = menuTitle.parentElement;
       for (let i = 0; box && box !== document.body && i < 4 && !menuSubtitle; i++, box = box.parentElement) {
         menuSubtitle = findText(box, (text) => /^\d+ commits?$/.test(text));
       }
-      menuNativeSubtitle = menuSubtitle?.data ?? '';
+      if (menuSubtitle) menuNativeSubtitle = menuSubtitle.data;
     }
     const { title, subtitle } = spanMenuLabel(plan, menuNativeSubtitle.trim());
     if (menuTitle.data !== title) menuTitle.data = title;

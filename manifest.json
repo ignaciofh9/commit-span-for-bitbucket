@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Commit Span for Bitbucket",
-  "version": "0.7.0",
+  "version": "0.7.2",
   "description": "Review a span of commits in a Bitbucket Data Center pull request, in its own Diff tab, without what merges brought in.",
   "homepage_url": "https://github.com/ignaciofh9/commit-span-for-bitbucket",
   "icons": {

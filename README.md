@@ -88,29 +88,28 @@ Colours use Atlassian's theme values where the server provides them, so dark mod
 
 ## What has been tested
 
-On a real Data Center server: the tab, read-only view and redesigned controls were reported working and looking good, and the Diff tab's requests turned out to be `commits/{hash}/diff/{path}?since=...`, which the filter handles. Checkboxes were clipped by the sidebar there. **The reserved gap that fixes this hasn't been run in Chrome yet.**
+**On real Bitbucket Data Center 9.4**, in Chrome, on a local test server with a made-up repo:
+
+- Ticking commits in the Diff menu and on the Commits tab, with a span across a real merge from the target branch.
+- The Diff tab narrowed to that span: the file list and diffs were filtered, and the merge's files stayed out.
+- A comment left during a span: Bitbucket stored it as a normal comment on the correct line, and it stayed there after **Show all changes**.
+- Picking a single commit in Bitbucket's own Diff menu: it shows the whole commit, unfiltered, and the span is kept.
+- The Diff menu's label, its **All changes** item no longer looking current during a span, and choosing it to clear the span.
+- The read-only view, with the merge's files hidden and named.
+
+It has also been used on another real Data Center server, whose version isn't recorded here.
 
 Run with `npm test` (no dependencies):
 
 - URL matching, paging, span and tick logic, row matching, merge filtering and the Diff tab filter. The page hook runs against stand-ins for `XMLHttpRequest` and `fetch`, including the requests it must leave alone.
 
-Run with the UI code in jsdom, a simulated DOM with no real layout. Those scripts aren't in this repo:
+**Not tested:**
 
-- **Real git merges:** a real repo with target work merged into a PR, a resolved conflict, a rewritten line and newer target commits, behind a fake API that answers using git. This covers picking commits through to the filtered Diff tab responses. Every line number kept was checked against the real file.
-- **A reviewer's journey:** ticking, the dropdown, keyboard and click-away closing, the read-only view, re-renders, moving between pages and cleaning up, on a made-up page shaped like screenshots of the real one. It checks that nothing is inserted into the page's layout.
-
-**These are unconfirmed until tried on a real server:**
-
-- How everything looks: the copied tab, where the checkboxes sit in the rows, the dropdown and the bar. jsdom doesn't draw anything.
-- That the file list also comes from a request the filter recognises. The bar warns if not.
-- That Bitbucket's viewer accepts a filtered diff and lays out split hunks properly.
-- **That comments land on the right line.** The line numbers and hashes are left unchanged, so they should. Try this on a throwaway PR before relying on it.
-- That the Diff menu's checkboxes, now at the right end of each row's subject line, clear the row's text and comment count. Earlier, at the left, they attached and worked on a real server.
-- That **All changes** stops looking current during a span. A stylesheet rule now forces its tint and left bar off, because removing its "selected" class only changed its text colour.
-- That the Diff menu's **All changes** item clears the span. It's found by its English text. The relabelled menu has been seen working on a real server, and if the text isn't found the menu keeps saying "All changes", while the bar still shows the span.
-- That tinting selected rows with a layer works on the real table without covering anything it shouldn't.
-- That picking a commit in Bitbucket's own Diff menu is left alone.
-- Spans from the first commit on PRs that are already merged.
+- Other Bitbucket versions, or large pull requests.
+- The side-by-side diff view.
+- The corner fallback.
+- Spans from the first commit on pull requests that are already merged.
+- Dark mode.
 
 ## Known limits
 
@@ -120,7 +119,7 @@ Run with the UI code in jsdom, a simulated DOM with no real layout. Those script
 
 ## Publishing
 
-Run `./build.sh` to make the package in `dist/`. `store-assets/LISTING.md` has everything for the Chrome Web Store's dashboard. `node store-assets/render-icons.mjs` redraws the icons, and `node store-assets/render-screenshots.mjs` redraws the screenshots. Neither needs a browser, but the screenshots need macOS.
+Run `./build.sh` to make the package in `dist/`. `store-assets/LISTING.md` has everything for the Chrome Web Store's dashboard. `node store-assets/render-icons.mjs` redraws the icons, with no browser needed. The screenshots are captures from a local test server.
 
 ## Adding another Bitbucket
 

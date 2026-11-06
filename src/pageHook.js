@@ -49,7 +49,10 @@
       return null;
     }
     if (match[2]) {
-      if ((query.get('changeScope') || 'ALL') !== 'ALL') return null;
+      if (!['ALL', 'UNREVIEWED'].includes(query.get('changeScope') || 'ALL')) {
+        noteSkipped(url);
+        return null;
+      }
     } else if (['COMMIT', 'RANGE'].includes(query.get('diffType'))) {
       noteSkipped(url);
       return null;

@@ -452,6 +452,14 @@ test("the page hook filters the commits endpoint a real server's Diff tab uses",
   assert.equal(hook.attributes['data-bpd-changes'], 'filtered');
 });
 
+test('the page hook filters the file list for reviewers, but not a chosen range', async () => {
+  const hook = runHook('/projects/K/repos/R/pull-requests/7/diff', planForHook);
+  const unreviewed = await hook.context.window.fetch(`${API_BASE}/changes?changeScope=UNREVIEWED`);
+  assert.equal((await unreviewed.json()).values.length, 1);
+  const range = await hook.context.window.fetch(`${API_BASE}/changes?changeScope=RANGE&sinceId=x&untilId=y`);
+  assert.equal((await range.json()).values.length, 2);
+});
+
 test('the page hook leaves a single commit alone', () => {
   const hook = runHook('/projects/K/repos/R/pull-requests/7/diff', planForHook);
   assert.equal(xhrGet(hook, '/rest/api/latest/projects/K/repos/R/commits/abcdef1234567/diff/a.js?withComments=true').responseText, DIFF_BODY);
