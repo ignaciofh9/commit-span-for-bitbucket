@@ -1,0 +1,27 @@
+/* Tints selected rows with a layer on top, not a background behind. Bitbucket fades
+   long text with a gradient to white, which would show up against a background. */
+[data-bpd-selected] {
+  position: relative;
+}
+
+[data-bpd-selected]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: var(--ds-blanket-selected, rgba(0, 82, 204, 0.1));
+}
+
+/* The Diff menu's "All changes" row, while a span is what's showing instead. Hovering
+   it still looks normal, since choosing it goes back to all changes. */
+[data-bpd-not-current]:not(:hover),
+[data-bpd-not-current]:not(:hover) *,
+[data-bpd-not-current]:not(:hover)::before,
+[data-bpd-not-current]:not(:hover)::after,
+[data-bpd-not-current]:not(:hover) *::before,
+[data-bpd-not-current]:not(:hover) *::after {
+  background-color: transparent !important;
+  border-left-color: transparent !important;
+  box-shadow: none !important;
+}

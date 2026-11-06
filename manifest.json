@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Commit Span for Bitbucket",
+  "version": "0.7.0",
+  "description": "Review a span of commits in a Bitbucket Data Center pull request, in its own Diff tab, without what merges brought in.",
+  "homepage_url": "https://github.com/ignaciofh9/commit-span-for-bitbucket",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*/*/repos/*/pull-requests/*"],
+      "css": ["src/page.css"],
+      "js": ["src/http.js", "src/datacenter.js", "src/options.js", "src/spanFilter.js", "src/authorDiff.js", "src/diffView.js", "src/content.js"]
+    },
+    {
+      "matches": ["*://*/*/repos/*/pull-requests/*"],
+      "js": ["src/spanFilter.js", "src/pageHook.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
+  ]
+}

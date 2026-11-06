@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Commit Span for Bitbucket privacy policy</title>
+  <style>
+    :root { color-scheme: light dark; --text: #1b1b19; --muted: #6b6b66; --bg: #ffffff; --line: #e4e4e0; }
+    @media (prefers-color-scheme: dark) { :root { --text: #ececea; --muted: #a3a39e; --bg: #131312; --line: #2e2e2c; } }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    main { max-width: 680px; margin: 0 auto; padding: 48px 20px 64px; }
+    h1 { font-size: 28px; line-height: 1.2; margin: 0 0 4px; letter-spacing: -0.01em; }
+    h2 { font-size: 18px; margin: 32px 0 6px; }
+    p, li { margin: 0 0 10px; }
+    ul { padding-left: 20px; margin: 0 0 10px; }
+    .updated { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+    .summary { border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; }
+    .summary p { margin: 0; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Commit Span for Bitbucket privacy policy</h1>
+  <p class="updated">Last updated November 6, 2026</p>
+
+  <div class="summary">
+    <p>Commit Span for Bitbucket works entirely in your browser. It talks only to the Bitbucket server you're already using, sends your data nowhere else, has no account, and uses no analytics or tracking.</p>
+  </div>
+
+  <h2>What it reads</h2>
+  <p>On pages whose address looks like a pull request on a Bitbucket server, it reads, using the session you're already signed in with:</p>
+  <ul>
+    <li>the page's address, and the labels and commit hashes on the page, to find where to add its controls;</li>
+    <li>the pull request's commits: their hashes, messages, authors and dates;</li>
+    <li>the pull request's list of changed files, and the code changes in those files, to work out what a span of commits changed.</li>
+  </ul>
+  <p>Its only requests read from that same server, and it never changes anything there. Comments you leave are posted by Bitbucket's own page.</p>
+
+  <h2>What it stores</h2>
+  <p>When you choose a span of commits to review, it saves that span in your browser's session storage for that tab, including the text of the lines those commits changed. It's used to narrow Bitbucket's Diff tab to that span. It's deleted when you close the tab, and removed earlier when you choose to show all changes. Nothing else is stored.</p>
+
+  <h2>What it shares</h2>
+  <p>Nothing. None of what it reads or stores is sent to the developer or to anyone else. It doesn't sell, transfer or use your data for anything other than showing you the commits you chose.</p>
+
+  <h2>Site access</h2>
+  <p>Self-hosted Bitbucket servers can have any address, so the extension asks to run on pages on any site whose address looks like a Bitbucket pull request (<code>/repos/.../pull-requests/...</code>). It doesn't load on other addresses. If a site that isn't Bitbucket has addresses of that shape, it runs there too, and its requests stay on that same site.</p>
+
+  <h2>Open source</h2>
+  <p>The code is public, so you can check all of this yourself: <a href="https://github.com/ignaciofh9/commit-span-for-bitbucket">github.com/ignaciofh9/commit-span-for-bitbucket</a>.</p>
+
+  <h2>Changes</h2>
+  <p>If this policy changes, the new version will be posted here with a new date.</p>
+
+  <h2>Contact</h2>
+  <p>Questions about this policy: <a href="mailto:ignaciofh9@gmail.com">ignaciofh9@gmail.com</a></p>
+</main>
+</body>
+</html>
