@@ -105,7 +105,7 @@ Colours use Atlassian's theme values where the server provides them, so dark mod
 
 It has also been used on another real Data Center server, whose version isn't recorded here.
 
-The demo page was run in Chrome with the extension installed, served locally. Once it's published, check it at its real address.
+The demo page was run in Chrome with the extension installed, at its published address.
 
 Run with `npm test` (no dependencies):
 
