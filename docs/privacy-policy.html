@@ -35,6 +35,7 @@
     <li>the pull request's list of changed files, and the code changes in those files, to work out what a span of commits changed.</li>
   </ul>
   <p>Its only requests read from that same server, and it never changes anything there. Comments you leave are posted by Bitbucket's own page.</p>
+  <p>The extension's demo page is an exception: there, the same data comes from made-up files on that page, and nothing is sent anywhere.</p>
 
   <h2>What it stores</h2>
   <p>When you choose a span of commits to review, it saves that span in your browser's session storage for that tab, including the text of the lines those commits changed. It's used to narrow Bitbucket's Diff tab to that span. It's deleted when you close the tab, and removed earlier when you choose to show all changes. Nothing else is stored.</p>

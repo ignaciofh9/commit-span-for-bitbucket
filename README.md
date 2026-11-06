@@ -29,6 +29,10 @@ They all stay in sync. Ticking builds one continuous span:
 
 **In the Diff tab**, a bar at the bottom says what you're looking at, and Bitbucket's Diff menu names the span instead of "All changes". **Change commits** picks a different span. **Show all changes**, or **All changes** in that menu, goes back to the whole PR. The span stays on for that PR in that browser tab until you do.
 
+## Try it
+
+With the extension installed, open the [demo page](https://ignaciofh9.github.io/commit-span-for-bitbucket/projects/DEMO/repos/invoice-service/pull-requests/1/diff/). It's a stand-in for a Bitbucket pull request with made-up data, so no server is needed.
+
 ## What the Diff tab shows
 
 The Diff tab's normal content is the PR's whole diff, which already leaves out what came in from the target branch. A span narrows that:
@@ -70,6 +74,8 @@ If a site that isn't Bitbucket has PR-shaped URLs and tabs labelled the same way
 
 If it can't parse a response, the response goes through unchanged.
 
+On the demo page, marked by a `commit-span-demo` tag, the extension gets its data through the page, because a service worker there plays the server and a content script's own requests don't reach it (`src/demo.js`, `docs/sw.js`). No other page uses this.
+
 The span is kept in `sessionStorage`, including the text of the span's changed lines, and it's gone when the browser tab closes.
 
 Data Center endpoints the extension calls itself, from [Atlassian's REST spec](https://dac-static.atlassian.com/server/bitbucket/10.0.swagger.v3.json), under `/rest/api/latest/projects/{key}/repos/{repo}/`: `pull-requests/{id}`, its `/commits`, `/changes` and `/diff/{path}`, plus `compare/changes` and `compare/diff/{path}`. It loads up to 6 files at a time and checks up to 200 files per span.
@@ -99,6 +105,8 @@ Colours use Atlassian's theme values where the server provides them, so dark mod
 
 It has also been used on another real Data Center server, whose version isn't recorded here.
 
+The demo page was run in Chrome with the extension installed, served locally. Once it's published, check it at its real address.
+
 Run with `npm test` (no dependencies):
 
 - URL matching, paging, span and tick logic, row matching, merge filtering and the Diff tab filter. The page hook runs against stand-ins for `XMLHttpRequest` and `fetch`, including the requests it must leave alone.
@@ -119,7 +127,7 @@ Run with `npm test` (no dependencies):
 
 ## Publishing
 
-Run `./build.sh` to make the package in `dist/`. `store-assets/LISTING.md` has everything for the Chrome Web Store's dashboard. `node store-assets/render-icons.mjs` redraws the icons, with no browser needed. The screenshots are captures from a local test server.
+Run `./build.sh` to make the package in `dist/`. `store-assets/LISTING.md` has everything for the Chrome Web Store's dashboard. `node store-assets/render-icons.mjs` redraws the icons, with no browser needed. `python3 store-assets/make-demo-data.py` regenerates the demo's data. The screenshots are captures from a local test server.
 
 ## Adding another Bitbucket
 
