@@ -25,6 +25,29 @@
     return { title: first === last ? `Commit ${first}` : `Commits ${first} to ${last}`, subtitle };
   }
 
+  // What the Diff tab is showing for a span, in a few words. spanNotes has the full story.
+  function spanSummary(plan) {
+    const files = Object.keys(plan.files).length;
+    const shown = `${files} ${files === 1 ? 'file' : 'files'}`;
+    return plan.gone || plan.notShown.length ? `${shown}. Some changes were replaced later.` : shown;
+  }
+
+  // Explains what the Diff tab is showing for a span, one sentence to a line.
+  function spanNotes(plan) {
+    const plural = (count, word) => `${count} ${word}${count === 1 ? '' : 's'}`;
+    const files = Object.keys(plan.files).length;
+    const lines = [`Showing only these commits' changes, in ${plural(files, 'file')}.`];
+    const missing = [];
+    if (plan.gone) missing.push(plural(plan.gone, 'line'));
+    if (plan.notShown.length) missing.push(plural(plan.notShown.length, plan.gone ? 'other file' : 'file'));
+    if (missing.length) {
+      const one = plan.gone + plan.notShown.length === 1;
+      lines.push(`Later commits changed or removed ${missing.join(' and ')} from these commits, so ${one ? "it isn't" : "they aren't"} shown. The read-only view has ${one ? 'it' : 'them'}.`);
+    }
+    lines.push('Comments on other lines are hidden until you choose All changes.');
+    return lines.join('\n');
+  }
+
   // What ticking commit i does to a span of list positions. Outside the span, it
   // extends the span to reach it. On an end, it unticks that commit. In the middle,
   // it drops the commits newer than it, so that commit becomes the newest.
@@ -77,7 +100,7 @@
     return null;
   }
 
-  const api = { commitParts, commitLabel, spanMenuLabel, nextSpan, spanRange, hashesInRow, commitForRow };
+  const api = { commitParts, commitLabel, spanMenuLabel, spanSummary, spanNotes, nextSpan, spanRange, hashesInRow, commitForRow };
   root.PrDiff = root.PrDiff || { providers: [] };
   Object.assign(root.PrDiff, api);
   if (typeof module !== 'undefined') module.exports = api;

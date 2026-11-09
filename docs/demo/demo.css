@@ -20,6 +20,7 @@ code, .hash { font: 12px Menlo, Consolas, monospace; }
 .trigger { display: flex; flex-direction: column; width: 100%; padding: 8px 12px; text-align: left; cursor: pointer; background: #fff; border: 2px solid #dfe1e6; border-radius: 3px; font: inherit; color: inherit; }
 .trigger-sub, .meta { font-size: 12px; color: #5e6c84; }
 .menu { position: absolute; top: 60px; left: 0; z-index: 10; width: 480px; background: #fff; border-radius: 3px; box-shadow: 0 4px 16px rgba(9, 30, 66, 0.35); }
+.menu-list { max-height: 340px; overflow-y: auto; }
 .menu-row { border-bottom: 1px solid #dfe1e6; }
 .menu-row:last-child { border-bottom: 0; }
 .menu-row:hover { background: #f4f5f7; }

@@ -23,9 +23,9 @@ Upload `dist/commit-span-for-bitbucket-<version>.zip`, made by running `./build.
 ```
 Commit Span for Bitbucket lets you review any run of commits in a pull request as one diff, instead of going commit by commit.
 
-Tick the commits you want in Bitbucket's own Diff menu or on the Commits tab. The Diff tab then shows only what those commits changed, in Bitbucket's own viewer, so you can read and comment as usual. It's handy for seeing what's new since you last looked.
+Tick the commits you want in Bitbucket's own Diff menu or on the Commits tab, and apply them. The Diff tab then shows only what those commits changed, in Bitbucket's own viewer, so you can read and comment as usual. It's handy for seeing what's new since you last looked.
 
-Code that came in by merging the target branch stays out of the way, because the Diff tab already leaves it out. If a later commit rewrote a line, you see the line as it will merge, and it tells you how many of the span's lines are no longer in the pull request. Files and comments outside the span are hidden until you choose to show all changes.
+Code that came in by merging the target branch stays out of the way, because the Diff tab already leaves it out. If a later commit rewrote a line, you see the line as it will merge, and it tells you how many of the span's lines are no longer in the pull request. Files and comments outside the span are hidden until you go back to all changes.
 
 There's also a read-only view that shows the commits as they were at the time.
 
@@ -79,9 +79,9 @@ Bitbucket Data Center is self-hosted, so there's a demo page for testing. It's a
 2. Open https://ignaciofh9.github.io/commit-span-for-bitbucket/projects/DEMO/repos/invoice-service/pull-requests/1/diff/
 3. Open the menu above the file list, labelled "All changes in this pull request".
 4. Tick "Handle an empty invoice list in the export" and "Add a totals row to the export". The commits between them are ticked too.
-5. Click "Review in Diff tab" in the bar that appears.
+5. Click "Show 3 commits" at the bottom of the menu.
 
-Expected: the file list goes from 4 files to 1, and the menu reads "3 of 6 commits". Only the changes from those commits remain, and the merge's files don't appear. Click "Show all changes" to get all 4 files back.
+Expected: the file list goes from 4 files to 1, and the menu reads "3 of 6 commits". Only the changes from those commits remain, and the merge's files don't appear. Choose "All changes in this pull request" in the same menu to get all 4 files back.
 
 The Commits tab has the same checkboxes in its table. On real servers, the extension runs on addresses of the same shape, which is why the demo page uses one.
 ```

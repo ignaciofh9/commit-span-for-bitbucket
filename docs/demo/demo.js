@@ -58,7 +58,7 @@
   const inert = (event) => event.preventDefault();
 
   function commitsPage() {
-    help.textContent = 'Tick two commits in the table, then click Review in Diff tab in the bar that appears.';
+    help.textContent = 'Tick two commits in the table, then click Show 3 commits in the bar that appears.';
     const body = el('tbody');
     for (const commit of commits) {
       body.append(
@@ -88,7 +88,7 @@
   }
 
   function diffPage() {
-    help.textContent = 'Open the menu above the file list, tick two commits, then click Review in Diff tab in the bar that appears. Only the changes those commits made stay on the page.';
+    help.textContent = 'Open the menu above the file list, tick two commits, then click the button at the bottom of the menu. Only the changes those commits made stay on the page.';
     const countText = `${commits.length} commits`;
     const trigger = el(
       'button',
@@ -97,6 +97,11 @@
       el('span', { className: 'trigger-sub', textContent: countText })
     );
     const menu = el('div', { className: 'menu', hidden: true });
+
+    function closeMenu() {
+      menu.hidden = true;
+      menu.replaceChildren();
+    }
 
     function openMenu() {
       const rows = [menuRow({ title: 'All changes in this pull request', meta: [countText], selected: true })];
@@ -110,9 +115,12 @@
       menu.hidden = false;
     }
 
-    trigger.addEventListener('click', () => (menu.hidden ? openMenu() : (menu.hidden = true)));
+    trigger.addEventListener('click', () => (menu.hidden ? openMenu() : closeMenu()));
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !menu.hidden) closeMenu();
+    });
     document.addEventListener('click', (event) => {
-      if (!menu.hidden && !trigger.contains(event.target)) menu.hidden = true;
+      if (!menu.hidden && !trigger.contains(event.target)) closeMenu();
     });
 
     const files = el('div', { className: 'files' });

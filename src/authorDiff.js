@@ -78,8 +78,10 @@
   }
 
   // Calls onPlan with the files to show, then onFile as each one is ready, in any order.
-  async function loadSpan(provider, pr, range, { onPlan, onFile, isStale = () => false }) {
-    const changes = await provider.listChanges(pr, range.to, range.from);
+  // Files that isFirst picks are looked at before the others, in case of the limit.
+  async function loadSpan(provider, pr, range, { onPlan, onFile, isFirst = () => false, isStale = () => false }) {
+    const listed = await provider.listChanges(pr, range.to, range.from);
+    const changes = [...listed.filter((change) => isFirst(change)), ...listed.filter((change) => !isFirst(change))];
     const merges = await Promise.all(
       range.incoming.map(async (hash) => {
         const merged = await provider.listChanges(pr, hash, range.from);
@@ -88,7 +90,7 @@
     );
     if (isStale()) return;
     const files = changes.slice(0, MAX_FILES);
-    onPlan(files, changes.length);
+    onPlan(files, changes.length, changes.slice(MAX_FILES));
 
     await inParallel(files, isStale, async (change, index) => {
       let result;
@@ -107,24 +109,28 @@
   }
 
   // Works out what the Diff tab should keep. Files the author changed in the span
-  // that have nothing left in the PR's whole diff are listed in notShown.
+  // that have nothing left in the PR's whole diff are listed in notShown. Only files in
+  // the PR's whole diff can appear, so those are checked first. Merges can bring in
+  // hundreds of others. Any that go over the limit stay, unfiltered, rather than vanish.
   async function prepareSpan(provider, pr, range, { onProgress = () => {}, isStale = () => false } = {}) {
     const prChanges = new Map((await provider.prChanges(pr)).map((change) => [change.path, change]));
     let files = [];
-    let total = 0;
+    let unchecked = [];
     const results = [];
     await loadSpan(provider, pr, range, {
       isStale,
-      onPlan(list, count) {
+      isFirst: (change) => prChanges.has(change.path),
+      onPlan(list, count, over) {
         files = list;
-        total = count;
+        unchecked = over.filter((change) => prChanges.has(change.path));
       },
       onFile(index, result) {
         results[index] = result;
         onProgress(results.filter(Boolean).length, files.length);
       },
     });
-    const plan = { first: range.first, last: range.last, files: {}, notShown: [], gone: 0, total, truncated: total > files.length };
+    const plan = { first: range.first, last: range.last, files: {}, notShown: [], gone: 0, unchecked: unchecked.length };
+    for (const change of unchecked) plan.files[change.path] = { all: true };
     const authored = files.map((change, index) => ({ change, result: results[index] })).filter(({ result }) => result && !result.hiddenWhole);
     await inParallel(authored, isStale, async ({ change, result }) => {
       const prChange = prChanges.get(change.path);

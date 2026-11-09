@@ -6,7 +6,7 @@ const vm = require('node:vm');
 require('../src/http.js');
 const { matchPr, loadPr, compareUrl } = require('../src/cloud.js');
 const dc = require('../src/datacenter.js');
-const { commitLabel, spanMenuLabel, nextSpan, spanRange, hashesInRow, commitForRow } = require('../src/options.js');
+const { commitLabel, spanMenuLabel, spanSummary, spanNotes, nextSpan, spanRange, hashesInRow, commitForRow } = require('../src/options.js');
 const { planFile, filterDiffResponse, filterChanges, storageKey } = require('../src/spanFilter.js');
 const { filterFile, loadSpan, prepareSpan } = require('../src/authorDiff.js');
 
@@ -132,6 +132,24 @@ test('spanMenuLabel names the span and how much of the PR it covers', () => {
   assert.deepEqual(spanMenuLabel({ ...plan, last: plan.first, count: 1 }, '12 commits'), { title: 'Commit aaaaaaa', subtitle: '1 of 12 commits' });
   assert.equal(spanMenuLabel({ ...plan, count: 1 }, '').subtitle, '1 commit');
   assert.equal(spanMenuLabel({ first: 'a', last: 'b' }, '12 commits').subtitle, '12 commits', 'older saved spans have no count');
+});
+
+test('spanSummary is short, and mentions replaced changes only when there are some', () => {
+  const files = { 'a.js': {}, 'b.js': {} };
+  assert.equal(spanSummary({ files, gone: 0, notShown: [] }), '2 files');
+  assert.equal(spanSummary({ files: { 'a.js': {} }, gone: 0, notShown: [] }), '1 file');
+  assert.equal(spanSummary({ files, gone: 8, notShown: ['c.js'] }), '2 files. Some changes were replaced later.');
+  assert.equal(spanSummary({ files, gone: 0, notShown: ['c.js'] }), '2 files. Some changes were replaced later.');
+});
+
+test('spanNotes says what is showing, and what later commits replaced', () => {
+  const files = { 'a.js': {}, 'b.js': {} };
+  const COMMENTS = 'Comments on other lines are hidden until you choose All changes.';
+  assert.equal(spanNotes({ files, gone: 0, notShown: [] }), `Showing only these commits' changes, in 2 files.\n${COMMENTS}`);
+  assert.equal(spanNotes({ files: { 'a.js': {} }, gone: 0, notShown: [] }).split('\n')[0], "Showing only these commits' changes, in 1 file.");
+  assert.equal(spanNotes({ files, gone: 1, notShown: [] }).split('\n')[1], "Later commits changed or removed 1 line from these commits, so it isn't shown. The read-only view has it.");
+  assert.equal(spanNotes({ files, gone: 8, notShown: ['c.js'] }).split('\n')[1], "Later commits changed or removed 8 lines and 1 other file from these commits, so they aren't shown. The read-only view has them.");
+  assert.equal(spanNotes({ files, gone: 0, notShown: ['c.js', 'd.js'] }).split('\n')[1], "Later commits changed or removed 2 files from these commits, so they aren't shown. The read-only view has them.");
 });
 
 test('hashesInRow spots commit rows without needing the commit list', () => {
@@ -298,6 +316,31 @@ test('filterDiffResponse keeps span changes, with real line numbers and valid hu
   assert.equal(kept.segments[2].lines[0].destination, 13, 'line number untouched');
 });
 
+test('a file new in the PR shows only the lines the span added, at their real line numbers', () => {
+  const lines = ['import x;', '', 'function a() {', '  earlier();', '}', '', 'function b() {', '  spanLine();', '}'];
+  const hunk = { segments: [{ type: 'ADDED', lines: lines.map((line, i) => rawLine(line, 0, i + 1)) }] };
+  const out = filterDiffResponse({ diffs: [{ hunks: [hunk] }] }, { keys: ['ADDED   spanLine();', 'ADDED }'] });
+  const kept = out.diffs[0].hunks.map((h) => h.segments.flatMap((s) => s.lines.map((l) => [l.destination, l.line])));
+  assert.deepEqual(kept, [[[5, '}']], [[8, '  spanLine();'], [9, '}']]], 'only the span lines, each piece numbered as in the file');
+  assert.deepEqual(out.diffs[0].hunks.map((h) => [h.destinationLine, h.destinationSpan]), [[5, 1], [8, 2]]);
+});
+
+test('a block mixing removed and added lines stays whole', () => {
+  const hunk = { segments: [
+    { type: 'REMOVED', lines: [rawLine('old line', 3, 3)] },
+    { type: 'ADDED', lines: [rawLine('from an earlier commit', 4, 3), rawLine('from the span', 4, 4)] },
+  ] };
+  const out = filterDiffResponse({ hunks: [hunk] }, { keys: ['ADDED from the span'] });
+  assert.deepEqual(out.hunks[0].segments.flatMap((s) => s.lines.map((l) => l.line)), ['old line', 'from an earlier commit', 'from the span']);
+});
+
+test('planFile counts the span lines a new file still has', () => {
+  const prDiff = { hunks: [{ rows: [added('earlier'), added('span line'), added('other')] }] };
+  const out = planFile({ hunks: [{ rows: [added('span line'), added('rewritten later')] }] }, prDiff);
+  assert.equal(out.kept, true);
+  assert.equal(out.gone, 1);
+});
+
 test("filterDiffResponse doesn't keep a block for sharing only punctuation", () => {
   const hunk = { segments: [{ type: 'ADDED', lines: [rawLine('}', 1, 1), rawLine('real', 1, 2)] }] };
   assert.equal(filterDiffResponse({ hunks: [hunk] }, { keys: ['ADDED }'] }).hunks.length, 0);
@@ -358,6 +401,43 @@ test('prepareSpan skips merge-only files and reports files gone from the PR', as
   assert.deepEqual(plan.files['author.js'].keys, ['ADDED author']);
   assert.equal(plan.files['broken.js'].all, true, 'kept unfiltered when it cannot be checked');
   assert.deepEqual(plan.notShown, ['gone.js'], 'merge.js is not reported, because it was never the author work');
+});
+
+const manyPaths = (prefix, count) => Array.from({ length: count }, (_, i) => `${prefix}-${String(i).padStart(3, '0')}.js`);
+
+function bigSpanProvider(spanPaths, prPaths) {
+  const requested = [];
+  return {
+    requested,
+    prChanges: async () => prPaths.map((path) => ({ path })),
+    listChanges: async () => spanPaths.map((path) => ({ path })),
+    fileDiff: async (_, newer, older, change) => {
+      requested.push(change.path);
+      return diffOf([added(`line in ${change.path}`)]);
+    },
+    prFileDiff: async (_, change) => diffOf([added(`line in ${change.path}`)]),
+  };
+}
+
+test("files only from merges can't use up the limit and hide the author's files", async () => {
+  // Merged files sort first, as "a-…", and the author's come after the limit.
+  const merged = manyPaths('a-merged', 205);
+  const authors = ['z-author-1.js', 'z-author-2.js'];
+  const provider = bigSpanProvider([...merged, ...authors], authors);
+  const plan = await prepareSpan(provider, pr, { from: 'S', to: 'E', first: 'a', last: 'b', incoming: [] });
+  assert.deepEqual(Object.keys(plan.files).sort(), authors);
+  assert.deepEqual(plan.files['z-author-1.js'].keys, ['ADDED line in z-author-1.js']);
+  assert.equal(plan.unchecked, 0, 'nothing that could appear went unchecked');
+  assert.equal(provider.requested.slice(0, 2).sort().join(), authors.join(), 'the PR files are checked first');
+});
+
+test('PR files over the limit are shown in full, not dropped', async () => {
+  const paths = manyPaths('pr', 203);
+  const plan = await prepareSpan(bigSpanProvider(paths, paths), pr, { from: 'S', to: 'E', first: 'a', last: 'b', incoming: [] });
+  assert.equal(Object.keys(plan.files).length, 203, 'every file stays');
+  assert.equal(plan.unchecked, 3);
+  assert.deepEqual(plan.files['pr-202.js'], { all: true }, 'an unchecked file is unfiltered');
+  assert.deepEqual(plan.files['pr-000.js'].keys, ['ADDED line in pr-000.js'], 'a checked file is still filtered');
 });
 
 function runHook(pathname, storedPlan) {

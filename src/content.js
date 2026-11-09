@@ -1,32 +1,28 @@
-// The on-page controls. Only three things go inside Bitbucket's own page: a copied tab,
-// a checkbox on each row of the Diff menu, and a checkbox on each commit table row, in a
-// gap reserved before the table is painted. Everything else floats above the page from
-// its own host, so the page never shifts. Bitbucket's class
-// names aren't relied on: tabs are found by label and rows by commit hash, and sync()
-// puts controls back after a re-render. If no tabs are found, a corner button is used.
+// The on-page controls. The Diff menu is where commits are picked: each row gets a
+// checkbox, and the menu gets a footer with the actions. The Commits table gets
+// checkboxes too, in a gap reserved before it's painted, with a small bar. Bitbucket's
+// class names aren't relied on: the menu is found from its "All changes" row, and rows by
+// commit hash, and sync() puts controls back after a re-render.
 (function () {
-  const { providers, commitParts, spanMenuLabel, nextSpan, spanRange, hashesInRow, commitForRow, loadSpan, prepareSpan, storageKey, DIFF_CSS, el, fileShell, fillFile } = globalThis.PrDiff;
+  const { providers, spanMenuLabel, spanSummary, spanNotes, nextSpan, spanRange, hashesInRow, commitForRow, loadSpan, prepareSpan, storageKey, DIFF_CSS, el, fileShell, fillFile } = globalThis.PrDiff;
 
-  const COMMITS_TAB = /^Commits(\s*\(?\d+\)?)?$/;
   const COMMITS_PAGE = /\/commits\/?$/;
   const DIFF_PAGE = /\/pull-requests\/\d+\/diff(?:\/|$)/;
-  const CORNER_AFTER_MS = 5000;
   const FILTER_WARNING_AFTER_MS = 5000;
   const ALL_CHANGES = 'All changes in this pull request';
   const ALL_CHANGES_ITEM = /^All changes in this pull request\s*(\d+ commits?)?$/;
   const MENU_SEARCH_MS = 10000;
   const MENU_PAGE = /\/pull-requests\/\d+\/(diff(?:\/|$)|commits\/[0-9a-f]+)/;
   const MENU_WATCH_MS = 5000;
-  const MENU_BOX_RIGHT = 12;
-  const CHECKBOX_SIZE = 14;
+  const MENU_HIT_WIDTH = 40;
+  const CHECKBOX_SIZE = 16;
   const CHECKBOX_SPACE = CHECKBOX_SIZE + 10;
 
   // Atlassian's theme colours, where the server provides them, so dark mode follows along.
-  const CSS = `
-    :host { display: block; height: 0; }
+  const SHARED_CSS = `
     [hidden] { display: none !important; }
     * { box-sizing: border-box; }
-    section, .bar, button { font-family: inherit; font-size: 14px; line-height: 20px; }
+    .actions, .notice, section, button { font-family: inherit; font-size: 14px; line-height: 20px; }
     button { height: 32px; padding: 0 12px; cursor: pointer; white-space: nowrap; border: 0; border-radius: 3px;
       color: var(--ds-text, #42526e); background: var(--ds-background-neutral, rgba(9, 30, 66, 0.04)); }
     button:hover:not(:disabled) { background: var(--ds-background-neutral-hovered, rgba(9, 30, 66, 0.08)); }
@@ -34,40 +30,21 @@
     button.primary { color: var(--ds-text-inverse, #fff); background: var(--ds-background-brand-bold, #0052cc); }
     button.primary:hover:not(:disabled) { background: var(--ds-background-brand-bold-hovered, #0065ff); }
     button.subtle { background: transparent; }
-    .launcher { position: fixed; right: 16px; bottom: 16px; z-index: 2147483000; box-shadow: var(--ds-shadow-overlay, 0 4px 12px rgba(9, 30, 66, 0.3)); }
-
-    .picker { position: fixed; z-index: 2147483001; width: 580px; max-width: calc(100vw - 32px); overflow: hidden; border-radius: 3px;
-      color: var(--ds-text, #172b4d); background: var(--ds-surface-overlay, #fff);
-      box-shadow: var(--ds-shadow-overlay, 0 4px 16px rgba(9, 30, 66, 0.3)); }
-    .commit-list { min-height: 72px; max-height: min(340px, 50vh); overflow-y: auto; }
-    .commit { display: flex; gap: 12px; align-items: flex-start; padding: 8px 12px; cursor: pointer;
-      border-bottom: 1px solid var(--ds-border, #dfe1e6); }
-    .commit:hover { background: var(--ds-background-neutral-subtle-hovered, #f4f5f7); }
-    .commit.selected { background: var(--ds-background-selected, #deebff); }
-    .commit input { flex: none; width: ${CHECKBOX_SIZE}px; height: ${CHECKBOX_SIZE}px; margin: 3px 0 0; cursor: pointer; }
-    .commit-text { min-width: 0; }
-    .subject { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-    .meta { font-size: 12px; color: var(--ds-text-subtle, #5e6c84); }
-    .list-message { padding: 24px 12px; text-align: center; color: var(--ds-text-subtle, #5e6c84); }
-    .footer { min-height: 48px; padding: 8px 12px; display: flex; align-items: center; color: var(--ds-text-subtle, #5e6c84); }
-
-    /* Long messages wrap within their own text, so the buttons stay on one row. */
-    .actions { display: flex; flex: 1; gap: 8px; align-items: center; min-width: 0; }
+    button.link { padding: 0 4px; color: var(--ds-link, #0052cc); background: transparent; }
+    .actions { display: flex; flex: 1; flex-wrap: wrap; gap: 8px; align-items: center; min-width: 0; color: var(--ds-text-subtle, #42526e); }
     .actions button { flex: none; }
-    .action-text { flex: 0 1 auto; min-width: 0; margin-right: auto; padding-right: 8px; }
-    @media (max-width: 640px) { .actions { flex-wrap: wrap; } }
-    /* Where comments are written, the bar sits over the file list, so it can't cover
-       Bitbucket's comment box or its buttons. */
-    .bar.side { transform: none; width: 296px; max-width: 296px; }
-    .bar.side .actions { flex-wrap: wrap; }
-    .bar.side .action-text { flex: 1 1 calc(100% - 72px); padding-right: 0; margin-right: 0; }
-    .bar.side .actions button { order: 2; padding: 0 10px; }
-    .bar.side .actions button.subtle { order: 1; }
+    .action-text { flex: 1 1 120px; min-width: 0; }
+  `;
+  const HOST_CSS = `
+    :host { display: block; height: 0; }
     .bar { position: fixed; left: 50%; bottom: 16px; z-index: 2147483000; transform: translateX(-50%); display: flex;
       width: max-content; max-width: min(800px, calc(100vw - 32px)); padding: 8px 12px; border-radius: 3px;
-      color: var(--ds-text, #172b4d); background: var(--ds-surface-overlay, #fff);
+      background: var(--ds-surface-overlay, #fff); box-shadow: var(--ds-shadow-overlay, 0 4px 16px rgba(9, 30, 66, 0.3)); }
+    .bar .action-text { flex: 0 1 auto; margin-right: 8px; }
+    /* Top right, where it can't cover the diff's comment boxes or the file list. */
+    .notice { position: fixed; top: 16px; right: 16px; z-index: 2147483000; max-width: min(480px, calc(100vw - 32px)); padding: 8px 12px; border-radius: 3px;
+      color: var(--ds-text, #172b4d); background: var(--ds-background-warning, #fffae6);
       box-shadow: var(--ds-shadow-overlay, 0 4px 16px rgba(9, 30, 66, 0.3)); }
-    .bar.warning { background: var(--ds-background-warning, #fffae6); }
 
     .panel { position: fixed; inset: 32px; z-index: 2147483002; display: flex; flex-direction: column; overflow: hidden; border-radius: 3px;
       color: var(--ds-text, #172b4d); background: var(--ds-surface-overlay, #fff);
@@ -79,25 +56,44 @@
     .status { margin: 0 0 8px; color: var(--ds-text-subtle, #42526e); }
     .panel a { font-size: 12px; color: var(--ds-link, #0052cc); }
   `;
-
-  const launcher = el('button', { className: 'launcher', textContent: 'Commit span', hidden: true });
-
-  const commitList = el('div', { className: 'commit-list' });
-  const hint = el('span', { textContent: 'Tick the first and last commit you want to review.' });
-  const footer = el('div', { className: 'footer' }, hint);
-  const picker = el('section', { className: 'picker', hidden: true, tabIndex: -1 }, commitList, footer);
-  picker.setAttribute('role', 'dialog');
-  picker.setAttribute('aria-label', 'Pick commits to review');
+  const FOOTER_CSS = `
+    .actions { padding: 8px 12px; }
+    .action-text { font-size: 12px; }
+  `;
 
   const actionText = el('span', { className: 'action-text' });
   actionText.setAttribute('role', 'status');
-  const reviewButton = el('button', { className: 'primary', textContent: 'Review in Diff tab' });
-  const readOnlyButton = el('button', { textContent: 'Read-only view' });
+  const readOnlyButton = el('button', { className: 'link', textContent: 'Read-only view' });
   const clearButton = el('button', { className: 'subtle', textContent: 'Clear' });
-  const changeButton = el('button', { textContent: 'Change commits' });
-  const showAllButton = el('button', { textContent: 'Show all changes' });
-  const actions = el('div', { className: 'actions' }, actionText, reviewButton, readOnlyButton, clearButton, changeButton, showAllButton);
+  const applyButton = el('button', { className: 'primary' });
+  const actions = el('div', { className: 'actions' }, actionText, readOnlyButton, clearButton, applyButton);
   const bar = el('div', { className: 'bar', hidden: true });
+  const notice = el('div', { className: 'notice', hidden: true });
+  notice.setAttribute('role', 'status');
+
+  // Pinned to the bottom of the menu's list while it scrolls. Set directly on the element,
+  // because Bitbucket's own rules for the list's children would beat a stylesheet here.
+  const footer = el('div', { className: 'bpd-menu-footer' });
+  Object.assign(footer.style, {
+    display: 'block',
+    position: 'sticky',
+    bottom: '0',
+    zIndex: '4',
+    margin: '0',
+    padding: '0',
+    borderTop: '1px solid var(--ds-border, #dfe1e6)',
+    background: 'var(--ds-surface-overlay, #fff)',
+  });
+  footer.attachShadow({ mode: 'open' }).append(el('style', { textContent: SHARED_CSS + FOOTER_CSS }));
+  // Bitbucket mustn't see these, or the menu would close. Keeping focus where it is also
+  // keeps it open, in case it closes when it loses focus.
+  for (const type of ['pointerdown', 'pointerup', 'mouseup', 'click', 'dblclick']) {
+    footer.addEventListener(type, (event) => event.stopPropagation());
+  }
+  footer.addEventListener('mousedown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  });
 
   const panelTitle = el('span', { className: 'panel-title' });
   const closePanelButton = el('button', { textContent: 'Close' });
@@ -116,7 +112,7 @@
   panel.setAttribute('aria-label', 'Read-only view of the commits');
 
   const host = el('div', { id: 'bitbucket-pr-diff' });
-  host.attachShadow({ mode: 'open' }).append(el('style', { textContent: CSS + DIFF_CSS }), launcher, picker, bar, panel);
+  host.attachShadow({ mode: 'open' }).append(el('style', { textContent: SHARED_CSS + HOST_CSS + DIFF_CSS }), bar, notice, panel);
 
   let current = null; // { provider, pr } for the PR on screen, if any
   let commits = [];
@@ -124,14 +120,14 @@
   let selection = null; // { oldest, newest } as commit hashes
   let loadId = 0;
   let loadRequested = false;
-  let tab = null;
-  let tabMissingSince = null;
   let plan = null; // the span the Diff tab is filtering to, if any
   let planChecked = false;
   let planSeenAt = null;
   let actionId = 0;
   let preparing = false;
   let actionMessage = '';
+  let viewPath = null;
+  const removedHighlights = new WeakMap();
   let menuTitle = null; // the text nodes of Bitbucket's Diff menu
   let menuSubtitle = null;
   let menuNativeSubtitle = '';
@@ -170,6 +166,58 @@
     return spanRange(commits, baseHash, selection.oldest, selection.newest);
   }
 
+  // The ticks and what's showing are one state: the ticks start as what's showing, and
+  // differ only while a change is waiting to be applied. Leaving the menu without applying
+  // discards it.
+
+  // The commit a single commit's page is showing, if this is one.
+  function viewedCommit() {
+    const hash = location.pathname.match(/\/pull-requests\/\d+\/commits\/([0-9a-f]+)/)?.[1];
+    return hash ? commits.find((commit) => commit.hash.startsWith(hash)) : undefined;
+  }
+
+  function viewSelection() {
+    const commit = viewedCommit();
+    if (commit) return { oldest: commit.hash, newest: commit.hash };
+    const active = activePlan();
+    if (active && indexOf(active.first) >= 0 && indexOf(active.last) >= 0) return { oldest: active.first, newest: active.last };
+    return null;
+  }
+
+  function matchesView() {
+    const view = viewSelection();
+    return Boolean(selection && view && selection.oldest === view.oldest && selection.newest === view.newest);
+  }
+
+  function seedSelection() {
+    if (selection || !commits.length) return;
+    selection = viewSelection();
+  }
+
+  function discardChanges() {
+    selection = viewSelection();
+    actionId++;
+    preparing = false;
+    actionMessage = '';
+    markRows();
+    markMenu();
+    renderActions();
+  }
+
+  // Bitbucket can move between commits without reloading.
+  function syncView() {
+    if (location.pathname === viewPath) return;
+    viewPath = location.pathname;
+    selection = null;
+    seedSelection();
+  }
+
+  // Something to apply: different ticks, or none at all while a span is showing.
+  function hasChange() {
+    if (selection) return !matchesView();
+    return !viewedCommit() && Boolean(activePlan());
+  }
+
   // Choosing commits
 
   function setSelection(next) {
@@ -177,47 +225,19 @@
     actionId++;
     preparing = false;
     actionMessage = '';
-    paintCommits();
     markRows();
     markMenu();
     renderActions();
   }
 
+  // Ticks that only mirror what's showing are placeholders: ticking outside them starts
+  // over. After that, ticking builds the span.
   function toggleCommit(hash) {
-    const next = nextSpan(selectedIndexes(), indexOf(hash));
+    const span = selectedIndexes();
+    const index = indexOf(hash);
+    const startOver = span && matchesView() && (index < span.newest || index > span.oldest);
+    const next = startOver ? { newest: index, oldest: index } : nextSpan(span, index);
     setSelection(next && { newest: commits[next.newest].hash, oldest: commits[next.oldest].hash });
-  }
-
-  function renderCommits() {
-    if (!commits.length) return;
-    commitList.replaceChildren(
-      ...commits.map((commit) => {
-        const { hash, subject, author, date } = commitParts(commit);
-        const box = el('input', { type: 'checkbox' });
-        box.dataset.hash = commit.hash;
-        box.addEventListener('change', () => toggleCommit(commit.hash));
-        return el(
-          'label',
-          { className: 'commit' },
-          box,
-          el(
-            'div',
-            { className: 'commit-text' },
-            el('div', { className: 'subject', textContent: subject, title: subject }),
-            el('div', { className: 'meta', textContent: [hash, author, date].filter(Boolean).join(' · ') })
-          )
-        );
-      })
-    );
-    paintCommits();
-  }
-
-  function paintCommits() {
-    for (const box of commitList.querySelectorAll('input')) {
-      const selected = inSelection(box.dataset.hash);
-      box.checked = selected;
-      box.closest('.commit').classList.toggle('selected', selected);
-    }
   }
 
   function rowHashes(row) {
@@ -246,23 +266,25 @@
     }
   }
 
-  function addRowBox(row, commit) {
-    const cell = row.cells[0];
+  // A checkbox inside a bigger clickable area, the full height of its row. Being a label,
+  // a click anywhere in it reaches the checkbox.
+  function checkboxIn(parent, commit, position) {
     const box = el('input', { type: 'checkbox', className: 'bpd-check' });
     box.setAttribute('aria-label', `Include commit ${commit.hash.slice(0, 7)} in the review`);
-    if (!/relative|absolute|fixed|sticky/.test(getComputedStyle(cell).position)) cell.style.position = 'relative';
-    Object.assign(box.style, {
-      position: 'absolute',
-      left: `${Math.max(Number(cell.dataset.bpdPadding) || 0, 4)}px`,
-      top: '50%',
-      width: `${CHECKBOX_SIZE}px`,
-      height: `${CHECKBOX_SIZE}px`,
-      margin: `-${CHECKBOX_SIZE / 2}px 0 0`,
-      cursor: 'pointer',
-    });
-    box.addEventListener('click', (event) => event.stopPropagation());
+    Object.assign(box.style, { width: `${CHECKBOX_SIZE}px`, height: `${CHECKBOX_SIZE}px`, margin: '0', cursor: 'pointer' });
+    const hit = el('label', { className: 'bpd-hit' }, box);
+    Object.assign(hit.style, { position: 'absolute', top: '0', bottom: '0', zIndex: '3', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0', cursor: 'pointer', ...position });
+    if (!/relative|absolute|fixed|sticky/.test(getComputedStyle(parent).position)) parent.style.position = 'relative';
+    parent.prepend(hit);
+    return { box, hit };
+  }
+
+  function addRowBox(row, commit) {
+    const cell = row.cells[0];
+    const width = (Number(cell.dataset.bpdPadding) || 0) + CHECKBOX_SPACE;
+    const { box, hit } = checkboxIn(cell, commit, { left: '0', width: `${width}px` });
+    hit.addEventListener('click', (event) => event.stopPropagation());
     box.addEventListener('change', () => toggleCommit(commit.hash));
-    cell.prepend(box);
     return box;
   }
 
@@ -291,15 +313,17 @@
   }
 
   // Finds the open menu from its "All changes" row: the list is the first parent whose
-  // children include a commit. The menu's closed label also says "All changes" until
-  // it's relabelled, and it comes first on the page.
+  // children include a commit. On the Diff tab, the menu's closed label also says "All
+  // changes" until it's relabelled, and it comes first on the page. On a single commit's
+  // page, it names that commit instead.
   function findMenuList() {
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     const matches = [];
     while (walker.nextNode()) {
       if (walker.currentNode.data.trim() === ALL_CHANGES) matches.push(walker.currentNode);
     }
-    for (const text of menuTitle?.isConnected ? matches : matches.slice(1)) {
+    const labelSaysAllChanges = DIFF_PAGE.test(location.pathname) && !menuTitle?.isConnected;
+    for (const text of labelSaysAllChanges ? matches.slice(1) : matches) {
       for (let row = text.parentElement, depth = 0; row?.parentElement && row !== document.body && depth < 8; row = row.parentElement, depth++) {
         if ([...row.parentElement.children].some((sibling) => sibling !== row && menuRowCommit(sibling))) {
           return { list: row.parentElement, allItem: row };
@@ -314,28 +338,16 @@
   // It's overlaid at the row's right edge, with room kept for it by page.css, so the
   // row doesn't get any wider.
   function addMenuBox(row, commit) {
-    const box = el('input', { type: 'checkbox', className: 'bpd-check bpd-menu-check' });
-    box.setAttribute('aria-label', `Include commit ${commit.hash.slice(0, 7)} in the review`);
-    if (!/relative|absolute|fixed|sticky/.test(getComputedStyle(row).position)) row.style.position = 'relative';
-    Object.assign(box.style, {
-      position: 'absolute',
-      right: `${MENU_BOX_RIGHT}px`,
-      top: '50%',
-      zIndex: '3',
-      width: `${CHECKBOX_SIZE}px`,
-      height: `${CHECKBOX_SIZE}px`,
-      margin: `-${CHECKBOX_SIZE / 2}px 0 0`,
-      cursor: 'pointer',
-    });
-    for (const type of ['pointerdown', 'pointerup', 'mouseup', 'dblclick']) {
-      box.addEventListener(type, (event) => event.stopPropagation());
+    const { box, hit } = checkboxIn(row, commit, { right: '0', width: `${MENU_HIT_WIDTH}px` });
+    for (const type of ['pointerdown', 'pointerup', 'mouseup', 'dblclick', 'click']) {
+      hit.addEventListener(type, (event) => event.stopPropagation());
     }
-    box.addEventListener('mousedown', (event) => {
+    hit.addEventListener('mousedown', (event) => {
       // Keeps focus where it is, in case the menu closes when it loses focus.
       event.preventDefault();
       event.stopPropagation();
     });
-    box.addEventListener('keydown', (event) => {
+    hit.addEventListener('keydown', (event) => {
       if (event.key === ' ' || event.key === 'Enter') event.stopPropagation();
     });
     box.addEventListener('click', (event) => {
@@ -346,7 +358,6 @@
       toggleCommit(commit.hash);
       setTimeout(markMenu);
     });
-    row.prepend(box);
     return box;
   }
 
@@ -361,15 +372,45 @@
       if (box.checked !== selected) box.checked = selected;
       row.toggleAttribute('data-bpd-selected', selected);
     }
-    // "All changes" isn't what's showing during a span, so it shouldn't look current.
-    if (DIFF_PAGE.test(location.pathname) && activePlan() && menuAllItem) {
-      menuAllItem.setAttribute('data-bpd-not-current', '');
-      for (const node of [menuAllItem, ...menuAllItem.querySelectorAll('*')]) {
-        node.removeAttribute('aria-selected');
-        node.removeAttribute('aria-current');
-        for (const name of [...node.classList]) {
-          if (/active|selected|current/i.test(name)) node.classList.remove(name);
-        }
+    // Bitbucket's own highlight marks what's showing. It steps aside when that isn't
+    // what the ticks say, so there's only ever one selection on screen.
+    const viewed = viewedCommit();
+    for (const row of menuList.children) {
+      if (row === menuAllItem) {
+        if (!viewed) setRowHighlight(row, !activePlan() && !selection);
+      } else if (viewed && menuRowCommit(row)?.hash === viewed.hash) {
+        setRowHighlight(row, !selection || matchesView());
+      }
+    }
+    if (footer.parentElement !== menuList || menuList.lastElementChild !== footer) {
+      // The list's own bottom padding would let rows show through below the footer.
+      menuList.style.paddingBottom = '0';
+      menuList.append(footer);
+    }
+  }
+
+  function setRowHighlight(row, allowed) {
+    let undo = removedHighlights.get(row);
+    if (allowed) {
+      if (!undo) return;
+      undo.forEach((restore) => restore());
+      removedHighlights.delete(row);
+      row.removeAttribute('data-bpd-not-current');
+      return;
+    }
+    if (!undo) removedHighlights.set(row, (undo = []));
+    row.setAttribute('data-bpd-not-current', '');
+    for (const node of [row, ...row.querySelectorAll('*')]) {
+      for (const name of [...node.classList]) {
+        if (!/active|selected|current|focus/i.test(name)) continue;
+        node.classList.remove(name);
+        undo.push(() => node.classList.add(name));
+      }
+      for (const attribute of ['aria-selected', 'aria-current']) {
+        if (!node.hasAttribute(attribute)) continue;
+        const value = node.getAttribute(attribute);
+        node.removeAttribute(attribute);
+        undo.push(() => node.setAttribute(attribute, value));
       }
     }
   }
@@ -380,6 +421,8 @@
     if (menuList && !menuList.isConnected) {
       menuList = null;
       menuAllItem = null;
+      footer.remove();
+      discardChanges();
     }
     if (!menuList && commits.length && Date.now() < menuWatchUntil) {
       const found = findMenuList();
@@ -402,78 +445,23 @@
     const { provider, pr } = current;
     const run = ++loadId;
     loadRequested = true;
-    if (!commits.length) commitList.replaceChildren(el('div', { className: 'list-message', textContent: 'Loading commits…' }));
     try {
       const loaded = await provider.loadPr(pr);
       if (run !== loadId) return;
-      const changed = loaded.commits.map((c) => c.hash).join() !== commits.map((c) => c.hash).join();
       commits = loaded.commits;
       baseHash = loaded.baseHash;
-      if (!commits.length) {
-        commitList.replaceChildren(el('div', { className: 'list-message', textContent: 'This PR has no commits yet.' }));
-      } else if (changed) {
-        renderCommits();
-      }
-      const active = activePlan();
-      if (!selection && active && indexOf(active.first) >= 0 && indexOf(active.last) >= 0) {
-        selection = { oldest: active.first, newest: active.last };
-        paintCommits();
-      }
+      seedSelection();
       markRows();
       syncMenu();
       renderActions();
-      if (!picker.hidden) positionPicker();
     } catch (error) {
-      if (run === loadId) commitList.replaceChildren(el('div', { className: 'list-message', textContent: error.message }));
+      if (run !== loadId) return;
+      actionMessage = error.message;
+      renderActions();
     }
   }
 
-  // The commit dropdown
-
-  function positionPicker() {
-    const anchor = tab?.isConnected ? tab : launcher;
-    const rect = anchor.getBoundingClientRect();
-    const left = Math.max(16, Math.min(rect.left, innerWidth - picker.offsetWidth - 16));
-    const below = rect.bottom + 4;
-    const top = below + picker.offsetHeight > innerHeight - 16 ? Math.max(16, rect.top - picker.offsetHeight - 4) : below;
-    picker.style.left = `${left}px`;
-    picker.style.top = `${top}px`;
-  }
-
-  function setExpanded(expanded) {
-    tab?.querySelector('a, button')?.setAttribute('aria-expanded', String(expanded));
-  }
-
-  // Loads on every open, so commits pushed since the last open appear.
-  function openPicker() {
-    picker.hidden = false;
-    setExpanded(true);
-    renderActions();
-    positionPicker();
-    picker.focus({ preventScroll: true });
-    load();
-  }
-
-  function closePicker({ returnFocus = false } = {}) {
-    if (picker.hidden) return;
-    picker.hidden = true;
-    setExpanded(false);
-    renderActions();
-    if (returnFocus) (tab?.querySelector('a, button') || launcher).focus({ preventScroll: true });
-  }
-
-  const togglePicker = () => (picker.hidden ? openPicker() : closePicker());
-
-  // The actions, shown in the dropdown's footer when it's open and in a floating bar otherwise
-
-  function planSummary() {
-    const count = Object.keys(plan.files).length;
-    const parts = [`Showing commits ${plan.first.slice(0, 7)} to ${plan.last.slice(0, 7)}: ${count} ${count === 1 ? 'file' : 'files'}.`];
-    if (plan.gone) parts.push(`${plan.gone} ${plan.gone === 1 ? 'line is' : 'lines are'} no longer in the PR.`);
-    if (plan.notShown.length) parts.push(`${plan.notShown.length} more ${plan.notShown.length === 1 ? 'file has' : 'files have'} nothing left in the PR.`);
-    if (plan.truncated) parts.push(`Only the first 200 of ${plan.total} files were checked.`);
-    return parts.join(' ');
-  }
+  // The actions: in the Diff menu's footer while it's open, or a bar on the Commits tab
 
   // Warns straight away if a request was skipped, or after a wait if none were seen.
   function filterWarning() {
@@ -506,37 +494,51 @@
   function renderActions() {
     const onDiffTab = DIFF_PAGE.test(location.pathname);
     const planActive = onDiffTab && activePlan();
-    const changed = planActive && selection && (selection.oldest !== plan.first || selection.newest !== plan.last);
-    const showing = planActive && picker.hidden && !changed ? plan : null;
-    if (onDiffTab && plan) planSeenAt ??= Date.now();
-    const selected = Boolean(selectedIndexes());
-    const home = picker.hidden ? bar : footer;
-    if (actions.parentElement !== home) home.append(actions);
+    if (planActive) planSeenAt ??= Date.now();
 
-    const warning = showing ? filterWarning() : '';
-    setText(actionText, actionMessage || warning || (showing ? planSummary() : selectionSummary()));
-    actionText.title = showing ? 'Comments on hidden lines are hidden too, until you show all changes.' : '';
-    reviewButton.hidden = Boolean(showing) || !current?.provider.prChanges;
-    reviewButton.disabled = preparing;
-    if (!preparing) setText(reviewButton, 'Review in Diff tab');
-    readOnlyButton.hidden = Boolean(showing);
+    // Only what changes how far to trust the view stays on screen by itself.
+    const warning = planActive ? filterWarning() : '';
+    const unchecked = planActive && plan.unchecked
+      ? `${plan.unchecked} ${plan.unchecked === 1 ? 'file is' : 'files are'} shown in full, because this PR is too big to check every file.`
+      : '';
+    setText(notice, warning || unchecked);
+    notice.hidden = !(warning || unchecked);
+
+    const menuOpen = Boolean(menuList?.isConnected);
+    const home = menuOpen ? footer.shadowRoot : bar;
+    if (actions.parentNode !== home) home.append(actions);
+
+    const changed = hasChange();
+    const span = selectedIndexes();
+    let text = actionMessage;
+    if (!text && changed) text = span ? selectionSummary() : 'No commits ticked';
+    const showingSummary = !text && planActive;
+    if (showingSummary) text = spanSummary(plan);
+    if (!text && menuOpen && !viewedCommit()) text = 'Tick the commits you want to review.';
+    setText(actionText, text);
+    actionText.hidden = !text;
+    actionText.title = showingSummary ? spanNotes(plan) : '';
+    actionText.style.cursor = showingSummary ? 'help' : '';
+
+    applyButton.hidden = !changed;
+    applyButton.disabled = preparing;
+    if (!preparing) {
+      const count = span ? span.oldest - span.newest + 1 : 0;
+      setText(applyButton, span ? `Show ${count} ${count === 1 ? 'commit' : 'commits'}` : 'Show all changes');
+    }
+    clearButton.hidden = !changed;
+    readOnlyButton.hidden = !span || (Boolean(viewedCommit()) && !changed);
     readOnlyButton.disabled = preparing;
-    clearButton.hidden = Boolean(showing);
-    changeButton.hidden = !showing;
-    showAllButton.hidden = !showing;
 
-    actions.hidden = !selected && !showing && !actionMessage;
-    hint.hidden = !actions.hidden;
-    bar.hidden = !picker.hidden || actions.hidden;
-    bar.classList.toggle('warning', Boolean(warning || actionMessage));
-    const side = MENU_PAGE.test(location.pathname);
-    bar.classList.toggle('side', side);
-    const left = side ? `${tab?.parentElement?.getBoundingClientRect().left ?? 16}px` : '';
-    if (bar.style.left !== left) bar.style.left = left;
+    bar.hidden = menuOpen || !(COMMITS_PAGE.test(location.pathname) && (changed || actionMessage));
   }
 
   // Saves what to keep, then reloads into the Diff tab, where the page hook applies it.
-  async function reviewInDiffTab() {
+  async function applySelection() {
+    if (!selection) {
+      showAllChanges();
+      return;
+    }
     const { provider, pr } = current;
     const range = currentRange();
     if (!range.from) {
@@ -548,13 +550,13 @@
     const isStale = () => run !== actionId;
     preparing = true;
     actionMessage = '';
-    reviewButton.textContent = 'Preparing…';
+    applyButton.textContent = 'Preparing…';
     renderActions();
     try {
       const prepared = await prepareSpan(provider, pr, range, {
         isStale,
         onProgress: (done, total) => {
-          reviewButton.textContent = `Preparing ${done} of ${total}…`;
+          applyButton.textContent = `Preparing ${done} of ${total}…`;
         },
       });
       if (isStale()) return;
@@ -622,16 +624,23 @@
     menuNativeSubtitle = '';
   }
 
-  // Choosing "All changes" in the open menu should do what it says.
+  // Choosing "All changes" in the open menu should do what it says. On a single commit's
+  // page, Bitbucket goes to the Diff tab itself, which mustn't then filter.
   function handleAllChangesItem(event) {
-    if (!menuTitle?.isConnected || !DIFF_PAGE.test(location.pathname) || !activePlan()) return;
+    if (!MENU_PAGE.test(location.pathname) || !activePlan()) return;
+    const onDiffTab = DIFF_PAGE.test(location.pathname);
+    if (onDiffTab && !menuTitle?.isConnected) return;
     for (let node = event.target; node && node !== document.body && node.textContent.length < 200; node = node.parentElement) {
-      if (ALL_CHANGES_ITEM.test(node.textContent.trim())) {
+      if (!ALL_CHANGES_ITEM.test(node.textContent.trim())) continue;
+      if (onDiffTab) {
         event.preventDefault();
         event.stopPropagation();
         showAllChanges();
-        return;
+      } else {
+        sessionStorage.removeItem(storageKey(location.pathname));
+        plan = null;
       }
+      return;
     }
   }
 
@@ -673,7 +682,6 @@
     const { provider, pr } = current;
     const range = currentRange();
     const title = selectionSummary();
-    closePicker();
     clearResult();
     panelTitle.textContent = title;
     panel.hidden = false;
@@ -724,68 +732,6 @@
     }
   }
 
-  // Bitbucket's tabs
-
-  // Finds the tab strip from the Diff tab outwards. Starting there means it finds
-  // the PR's Commits tab, not the Commits link in the repo sidebar.
-  function findTabs() {
-    const withLabel = (pattern) =>
-      [...document.querySelectorAll('a, button, [role="tab"]')].filter((node) => pattern.test(node.textContent.trim()));
-    const commitsTabs = withLabel(COMMITS_TAB);
-    for (const diffTab of withLabel(/^Diff$/)) {
-      for (let strip = diffTab.parentElement; strip && strip !== document.body; strip = strip.parentElement) {
-        const commitsTab = commitsTabs.find((node) => strip.contains(node));
-        if (commitsTab) return { strip, commitsTab };
-      }
-    }
-    return null;
-  }
-
-  // Copies the Commits tab, so the new tab picks up Bitbucket's own styling.
-  function makeTab(strip, commitsTab) {
-    let item = commitsTab;
-    while (item.parentElement !== strip) item = item.parentElement;
-    const copy = item.cloneNode(true);
-    for (const node of [copy, ...copy.querySelectorAll('*')]) {
-      for (const attribute of ['id', 'href', 'aria-selected', 'aria-current', 'aria-controls']) node.removeAttribute(attribute);
-      for (const name of [...node.classList]) {
-        if (/active|selected|current/i.test(name)) node.classList.remove(name);
-      }
-    }
-    const target = copy.matches('a, button') ? copy : copy.querySelector('a, button');
-    if (target?.tagName === 'A') target.setAttribute('href', '#');
-    target?.setAttribute('aria-haspopup', 'dialog');
-    target?.setAttribute('aria-expanded', 'false');
-    const walker = document.createTreeWalker(copy, NodeFilter.SHOW_TEXT);
-    const texts = [];
-    while (walker.nextNode()) texts.push(walker.currentNode);
-    texts.filter((text) => text.data.trim()).forEach((text, i) => {
-      text.data = i === 0 ? 'Commit span' : '';
-    });
-    copy.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      togglePicker();
-    });
-    return copy;
-  }
-
-  function placeControls() {
-    if (!host.isConnected) document.documentElement.append(host);
-    if (tab?.isConnected) return;
-    const tabs = findTabs();
-    if (tabs) {
-      tab = makeTab(tabs.strip, tabs.commitsTab);
-      tabs.strip.append(tab);
-      setExpanded(!picker.hidden);
-      launcher.hidden = true;
-      tabMissingSince = null;
-      return;
-    }
-    tabMissingSince ??= Date.now();
-    launcher.hidden = Date.now() - tabMissingSince < CORNER_AFTER_MS;
-  }
-
   function reset() {
     loadId++;
     actionId++;
@@ -798,21 +744,18 @@
     planSeenAt = null;
     preparing = false;
     actionMessage = '';
-    tabMissingSince = null;
+    viewPath = null;
     restoreDiffMenu();
-    picker.hidden = true;
     panel.hidden = true;
     bar.hidden = true;
-    launcher.hidden = true;
+    notice.hidden = true;
     clearResult();
-    commitList.replaceChildren();
-    tab?.remove();
-    tab = null;
+    footer.remove();
     host.remove();
     menuList = null;
     menuAllItem = null;
     menuWatchUntil = 0;
-    for (const box of document.querySelectorAll('.bpd-check')) box.remove();
+    for (const hit of document.querySelectorAll('.bpd-hit')) hit.remove();
     for (const row of document.querySelectorAll('[data-bpd-selected]')) row.removeAttribute('data-bpd-selected');
     for (const cell of document.querySelectorAll('[data-bpd-padding]')) {
       cell.style.paddingLeft = '';
@@ -838,7 +781,8 @@
       reset();
     }
     if (!current) return;
-    placeControls();
+    if (!host.isConnected) document.documentElement.append(host);
+    syncView();
     if (COMMITS_PAGE.test(location.pathname)) {
       if (!loadRequested) load();
       markRows();
@@ -846,7 +790,6 @@
     renderActions();
     labelDiffMenu();
     if (MENU_PAGE.test(location.pathname)) syncMenu();
-    if (!picker.hidden && !commits.length && !loadRequested) load();
   }
 
   let syncPending = false;
@@ -859,39 +802,22 @@
     }, 100);
   }
 
-  launcher.addEventListener('click', togglePicker);
-  reviewButton.addEventListener('click', reviewInDiffTab);
+  applyButton.addEventListener('click', applySelection);
   readOnlyButton.addEventListener('click', openReadOnly);
-  clearButton.addEventListener('click', () => setSelection(null));
-  changeButton.addEventListener('click', openPicker);
-  showAllButton.addEventListener('click', showAllChanges);
+  clearButton.addEventListener('click', discardChanges);
   closePanelButton.addEventListener('click', closePanel);
 
-  document.addEventListener(
-    'click',
-    (event) => {
-      if (picker.hidden) return;
-      const path = event.composedPath();
-      if (path.includes(host) || path.includes(tab)) return;
-      if (event.target.classList?.contains('bpd-check')) return;
-      closePicker();
-    },
-    true
-  );
   document.addEventListener('click', handleAllChangesItem, true);
   document.addEventListener('click', watchForMenu, true);
   document.addEventListener(
     'keydown',
     (event) => {
-      if (event.key !== 'Escape' || (picker.hidden && panel.hidden)) return;
+      if (event.key !== 'Escape' || panel.hidden) return;
       event.stopPropagation();
-      if (!panel.hidden) closePanel();
-      else closePicker({ returnFocus: true });
+      closePanel();
     },
     true
   );
-  addEventListener('resize', () => !picker.hidden && positionPicker());
-  addEventListener('scroll', () => !picker.hidden && positionPicker(), { capture: true, passive: true });
 
   // This callback runs before the browser paints, so the commit table's gap is there
   // the first time it's seen. The rest can wait for the next sync.

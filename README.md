@@ -10,24 +10,24 @@ A Chrome extension for reviewing Bitbucket Data Center pull requests. Pick a spa
 
 ## Use it
 
-**Pick the commits**, whichever way is handy:
+1. On the Diff tab, open Bitbucket's own menu of commits, and tick the first and last commit you want. Everything between is ticked too.
+2. Click **Show 3 commits** at the bottom of the menu. The Diff tab then shows only those commits, and the menu's label names them. Comment as usual.
+3. To go back, choose **All changes in this pull request** in the same menu.
 
-- On the Diff tab, open Bitbucket's own menu of commits and tick them there. Clicking the rest of a row still opens that one commit.
-- On the Commits tab, tick them in the table.
-- On any PR page, click the **Commit span** tab and tick them in its dropdown. This may go away if the Diff menu proves reliable.
+**The ticks always match what's showing.** They start as the commit or span you're viewing. If you click away or press Esc without applying, your ticks are discarded. Bitbucket's own highlight steps aside while you have a change waiting.
 
-They all stay in sync. Ticking builds one continuous span:
+**Ticking:**
 
-- Tick a commit outside the span, and the span extends to reach it. So tick the first and last commit, and everything between is included.
-- Untick the newest or oldest commit, and the span gets shorter.
-- Untick a commit in the middle, and the commits newer than it drop out.
+- If the ticks still match what's showing, ticking outside them starts over from that commit.
+- After that, ticking outside the span extends it to reach that commit.
+- Unticking the newest or oldest commit makes the span shorter.
+- Unticking a commit in the middle drops the commits newer than it.
 
-**Review them.** A bar with your selection appears as soon as you tick something, or in the dropdown's footer while that's open.
+Clicking the rest of a row opens that one commit, as usual.
 
-- **Review in Diff tab** opens Bitbucket's Diff tab showing only those commits. Comment as usual.
-- **Read-only view** opens the commits' diff over the page, without comments. It's a fallback for now.
+The Commits tab has the same checkboxes, with a small bar at the bottom. There, your ticks stay until you clear them or leave the page.
 
-**In the Diff tab**, a bar at the bottom says what you're looking at, and Bitbucket's Diff menu names the span instead of "All changes". **Change commits** picks a different span. **Show all changes**, or **All changes** in that menu, goes back to the whole PR. The span stays on for that PR in that browser tab until you do.
+**Read-only view**, in the menu's footer, shows the commits as they were at the time, without comments.
 
 ## Try it
 
@@ -41,13 +41,11 @@ The Diff tab's normal content is the PR's whole diff, which already leaves out w
 - In the files that remain, changes the span didn't make are hidden. Each change keeps its real line numbers.
 - Merge conflict markers always stay visible in a file the span touched.
 
-**It shows the code as it will merge.** If a span's commit changed a line and a later commit rewrote it, you see the final line, and the bar counts the span's lines that are no longer in the PR. If you need the code exactly as it was at that commit, use the read-only view.
+**It shows the code as it will merge.** If a span's commit changed a line and a later commit rewrote it, you see the final line, and the menu's footer says some changes were replaced later, and its tooltip says how many. If you need the code exactly as it was at that commit, use the read-only view.
 
-**Comments on hidden lines are hidden too**, until you click **Show all changes**. The bar's tooltip says so.
+**Comments on hidden lines are hidden too**, until you go back to all changes. Hover over the note in the menu's footer for the details.
 
 **How changes are matched:** by their text, so it can be wrong in both directions. If a change is right next to one from outside the span, both stay. If an identical line was added both inside and outside the span, both can stay. Binary files and files that couldn't be checked aren't filtered at all.
-
-If filtering doesn't apply, the bar turns yellow and includes **Saw:** and the shape of the request it skipped. It leaves out the project, repo, PR number, file path, hashes and parameter values, so it's safe to share.
 
 ## What the read-only view shows
 
@@ -78,17 +76,17 @@ On the demo page, marked by a `commit-span-demo` tag, the extension gets its dat
 
 The span is kept in `sessionStorage`, including the text of the span's changed lines, and it's gone when the browser tab closes.
 
-Data Center endpoints the extension calls itself, from [Atlassian's REST spec](https://dac-static.atlassian.com/server/bitbucket/10.0.swagger.v3.json), under `/rest/api/latest/projects/{key}/repos/{repo}/`: `pull-requests/{id}`, its `/commits`, `/changes` and `/diff/{path}`, plus `compare/changes` and `compare/diff/{path}`. It loads up to 6 files at a time and checks up to 200 files per span.
+Data Center endpoints the extension calls itself, from [Atlassian's REST spec](https://dac-static.atlassian.com/server/bitbucket/10.0.swagger.v3.json), under `/rest/api/latest/projects/{key}/repos/{repo}/`: `pull-requests/{id}`, its `/commits`, `/changes` and `/diff/{path}`, plus `compare/changes` and `compare/diff/{path}`. It loads up to 6 files at a time and checks up to 200 files per span, starting with the files in the PR's whole diff. In the Diff tab, any more of those are shown in full, and a warning says so. The read-only view says it's showing only the first 200.
 
 ## How it stays out of the way
 
-Only three things go inside Bitbucket's page: a copy of its Commits tab, a checkbox on each row of its Diff menu, and a checkbox at the start of each row of the Commits table. Selected rows are tinted by a see-through layer on top (`src/page.css`), so Bitbucket's fading of long text isn't disturbed. The Commits table's checkboxes get a narrow gap, added to the table's first column as soon as the table appears and before the browser paints it, so they don't shift anything when they arrive. If the table was already on screen when the extension started, it moves once. The dropdown, bar and read-only view float above the page from their own element.
+Only a few things go inside Bitbucket's page: a checkbox on each row of the Diff menu, a footer at the bottom of that menu, and a checkbox at the start of each row of the Commits table. Selected rows are tinted by a see-through layer on top (`src/page.css`), so Bitbucket's fading of long text isn't disturbed. The Commits table's checkboxes get a narrow gap, added as soon as the table appears and before the browser paints it. If the table was already on screen when the extension started, it moves once.
 
-It doesn't rely on Bitbucket's class names. It finds the tabs by their labels ("Diff" and "Commits") and the rows by their commit hashes, and puts back anything a re-render removed.
+The only thing on the page outside those is a small warning at the top right, if filtering doesn't apply or a very large PR can't be fully checked. It shows **Saw:** and the shape of any request it skipped, without the project, repo, PR number, file path, hashes or parameter values.
 
-- The Diff menu's list is found from its "All changes" row, for a few seconds after each click on the page, and its rows by their commit hashes.
-- If a row can't be matched, it gets no checkbox. The other ways of picking still work.
-- If the tabs can't be found for 5 seconds, a **Commit span** button appears in the corner instead. Translated tab labels would also cause this.
+It doesn't rely on Bitbucket's class names for finding things. It finds the Diff menu from its "All changes" row, for a few seconds after each click on the page, and rows by their commit hashes. Two touches are best-effort, and fail harmlessly if Bitbucket changes: keeping long subjects clear of the checkbox, and taking away the highlight from the row that isn't showing.
+
+If the menu can't be found, it gets no checkboxes, and the Commits tab still works. Translated labels would cause this, because the menu is found by its English text.
 
 Colours use Atlassian's theme values where the server provides them, so dark mode should follow along, and otherwise fall back to light.
 
@@ -106,6 +104,8 @@ Colours use Atlassian's theme values where the server provides them, so dark mod
 It has also been used on another real Data Center server, whose version isn't recorded here.
 
 The demo page was run in Chrome with the extension installed, at its published address.
+
+The footer in the Diff menu has only been run on the demo page's copy of the menu, not on a real server's yet.
 
 Run with `npm test` (no dependencies):
 

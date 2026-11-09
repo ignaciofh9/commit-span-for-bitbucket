@@ -15,9 +15,9 @@
 
 /* Keeps a Diff menu row's text and comment count clear of its checkbox, inside the
    row's own width. If Bitbucket renames this class, long subjects just run closer. */
-.bpd-menu-check ~ * .commit-option-label {
+.bpd-hit ~ * .commit-option-label {
   box-sizing: border-box;
-  padding-right: 26px !important;
+  padding-right: 30px !important;
 }
 
 /* The Diff menu's "All changes" row, while a span is what's showing instead. Hovering
@@ -25,7 +25,7 @@
 [data-bpd-not-current]:not(:hover),
 [data-bpd-not-current]:not(:hover) *,
 [data-bpd-not-current]:not(:hover)::before,
-[data-bpd-not-current]:not(:hover)::after,
+[data-bpd-not-current]:not(:hover):not([data-bpd-selected])::after,
 [data-bpd-not-current]:not(:hover) *::before,
 [data-bpd-not-current]:not(:hover) *::after {
   background-color: transparent !important;
